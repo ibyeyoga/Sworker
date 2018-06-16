@@ -1,0 +1,10 @@
+{
+    "name": "ibyeyoga/sworker",
+    "authors": [
+        {
+            "name": "yoga",
+            "email": "server@ibye.cn"
+        }
+    ],
+    "require": {}
+}
