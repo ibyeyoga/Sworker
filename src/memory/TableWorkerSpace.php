@@ -1,26 +1,25 @@
 <?php
 
 namespace IBye\memory;
-
-
-class TableWorkerSpace implements WorkerSpaceInterface
+use swoole_table as stable;
+class TableWorkerSpace implements WorkerSpace
 {
     private $_instance;
 
     public function __construct($max)
     {
-            $this->_instance = new swoole_table($max);
-            $this->_instance->column(WorkerSpaceInterface::FILED_WID, swoole_table::TYPE_INT, 2);//strlen($_max)
+            $this->_instance = new stable($max);
+            $this->_instance->column(WorkerSpace::FIELD_WID, stable::TYPE_INT, 2);//strlen($_max)
 //            $this->workerSpace->column('name', swoole_table::TYPE_STRING, $_nameLength);
-            $this->_instance->column(WorkerSpaceInterface::FILED_TYPE, swoole_table::TYPE_INT, 1);
-            $this->_instance->column(WorkerSpaceInterface::FILED_STATUS, swoole_table::TYPE_INT, 1);
+            $this->_instance->column(WorkerSpace::FIELD_TYPE, stable::TYPE_INT, 1);
+            $this->_instance->column(WorkerSpace::FIELD_STATUS, stable::TYPE_INT, 1);
             $this->_instance->create();
     }
 
 
     public function getWorkerInfo($wId)
     {
-        return $this->_instance->set($wId);
+        return $this->_instance->get($wId);
     }
 
     public function setWorkerInfo($wId, array $info)

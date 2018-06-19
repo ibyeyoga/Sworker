@@ -3,8 +3,9 @@
 namespace IBye;
 
 use IBye\memory\TableWorkerSpace;
-use IBye\memory\WorkerSpaceInterface;
+use IBye\memory\WorkerSpace;
 use IBye\worker\BaseWorker;
+use Swoole\Process\Pool;
 
 class SworkerPool
 {
@@ -22,14 +23,12 @@ class SworkerPool
     public function __construct($config = [])
     {
         $this->defConfig = array_merge($this->defConfig, $config);
-        $_max = (int) $this->defConfig['max'];
-//        $_nameLength = 512;
-        $this->pool = new Swoole\Process\Pool($_max);
+        $_max = (int)$this->defConfig['max'];
+        $this->pool = new Pool($_max);
 
         if ($this->pool) {
             $this->workerSpace = new TableWorkerSpace($_max);
         }
-
         //释放内存
         unset($_max);
     }
@@ -41,9 +40,9 @@ class SworkerPool
             $workerInfo['id'] = $len;
             $this->workers[] = $workerInfo;
             $this->workerSpace->setWorkerInfo($workerInfo['id'], [
-                WorkerSpaceInterface::FIELD_WID => $workerInfo['id'],
-                WorkerSpaceInterface::FIELD_TYPE => $workerInfo['type'],
-                WorkerSpaceInterface::FIELD_STATUS => BaseWorker::STATUS_RUNNING
+                WorkerSpace::FIELD_WID => $workerInfo['id'],
+                WorkerSpace::FIELD_TYPE => $workerInfo['type'],
+                WorkerSpace::FIELD_STATUS => BaseWorker::STATUS_RUNNING
             ]);
         } else {
             echo 'You can only add ' . $this->defConfig['max'] . ' workers in pool.';
@@ -55,9 +54,9 @@ class SworkerPool
         if (!$this->isRunning) {
             //onWorkerStart
             $this->pool->on("WorkerStart", function ($pool, $wId) {
-                $workerInfo = $this->workerSpace->get($wId);
+                $workerInfo = $this->workerSpace->getWorkerInfo($wId);
                 if ($workerInfo !== false) {
-                    if ($workerInfo[WorkerSpaceInterface::FIELD_STATUS] == BaseWorker::STATUS_RUNNING && isset($this->workers[$wId]['do'])) {
+                    if ($workerInfo[WorkerSpace::FIELD_STATUS] == BaseWorker::STATUS_RUNNING && isset($this->workers[$wId]['do'])) {
                         $callable = $this->workers[$wId]['do'];
                         $callable($this->workers[$wId]);
                     }
@@ -67,13 +66,14 @@ class SworkerPool
             //onWorkerStop
             $this->pool->on("WorkerStop", function ($pool, $wId) {
                 if ($this->getWorkerStatus($wId) == BaseWorker::STATUS_RUNNING) {
-                    if (isset($this->workers[$wId][WorkerSpaceInterface::FIELD_TYPE]) && $this->workers[$wId][WorkerSpaceInterface::FIELD_TYPE] == BaseWorker::STATUS_RUNNING) {
-                        //停止进程
+                    //check if it can only run 1 time
+                    if (isset($this->workers[$wId][WorkerSpace::FIELD_TYPE]) && $this->workers[$wId][WorkerSpace::FIELD_TYPE] == BaseWorker::TYPE_ONCE) {
+                        //kill it
                         $this->removeWorker($wId);
-                        echo '#' . $this->workers[$wId]['name'] . 'stopped.' . PHP_EOL;
                     }
                 }
             });
+
             $this->isRunning = true;
             $this->pool->start();
         }
@@ -81,11 +81,56 @@ class SworkerPool
 
     public function getWorkerStatus($wId)
     {
-        return $this->workerSpace->getWorkerInfoField($wId, WorkerSpaceInterface::FIELD_STATUS);
+        return $this->workerSpace->getWorkerInfoField($wId, WorkerSpace::FIELD_STATUS);
     }
 
     public function removeWorker($wId)
     {
-        $this->workerSpace->setWorkerInfoField($wId, WorkerSpaceInterface::FIELD_STATUS, BaseWorker::STATUS_STOP);
+        $this->workerSpace->setWorkerInfoField($wId, WorkerSpace::FIELD_STATUS, BaseWorker::STATUS_STOP);
     }
 }
+
+/**
+ * Example
+ * Start
+ *
+ * use IBye\SworkerPool;
+ * use IBye\worker\BaseWorker;
+ *
+ * try {
+ * $workerPool = new SworkerPool([
+ * 'max' => 2
+ * ]);
+ *
+ * $workerPool->addWorker([
+ * 'name' => 'work001',
+ * 'do' => function ($data) {
+ * echo "#{$data['name']} is started\n";
+ * $redis = new Redis();
+ * $redis->pconnect('127.0.0.1', 6379);
+ * $key = "key1";
+ * while (true) {
+ * $msgs = $redis->brpop($key, 2);
+ * if ($msgs == null) continue;
+ * //处理任务列表
+ * var_dump($msgs);
+ * }
+ * },
+ * 'type' => BaseWorker::TYPE_UNLIMIT
+ * ]);
+ *
+ * $workerPool->addWorker([
+ * 'name' => 'worker002',
+ * 'do' => function ($data) {
+ * echo 'i\'m worker !!!' . PHP_EOL;
+ * },
+ * 'type' => BaseWorker::TYPE_ONCE
+ * ]);
+ *
+ * $workerPool->run();
+ * } catch (Exception $e) {
+ * echo $e->getMessage();
+ * }
+ *
+ * End
+ */

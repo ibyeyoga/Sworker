@@ -9,7 +9,7 @@
 namespace IBye\memory;
 
 
-interface WorkerSpaceInterface
+interface WorkerSpace
 {
     const FIELD_WID = 'wid';
     const FIELD_STATUS = 'status';

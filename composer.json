@@ -6,5 +6,10 @@
             "email": "server@ibye.cn"
         }
     ],
-    "require": {}
+    "require": {},
+    "autoload":{
+        "psr-4":{
+            "IBye\\":"src/"
+        }
+    }
 }
