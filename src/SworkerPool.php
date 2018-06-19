@@ -4,7 +4,7 @@ namespace IBye;
 
 use IBye\memory\TableWorkerSpace;
 use IBye\memory\WorkerSpace;
-use IBye\worker\BaseWorker;
+use IBye\worker\Worker;
 use Swoole\Process\Pool;
 
 class SworkerPool
@@ -42,7 +42,7 @@ class SworkerPool
             $this->workerSpace->setWorkerInfo($workerInfo['id'], [
                 WorkerSpace::FIELD_WID => $workerInfo['id'],
                 WorkerSpace::FIELD_TYPE => $workerInfo['type'],
-                WorkerSpace::FIELD_STATUS => BaseWorker::STATUS_RUNNING
+                WorkerSpace::FIELD_STATUS => Worker::STATUS_RUNNING
             ]);
         } else {
             echo 'You can only add ' . $this->defConfig['max'] . ' workers in pool.';
@@ -56,8 +56,8 @@ class SworkerPool
             $this->pool->on("WorkerStart", function ($pool, $wId) {
                 $workerInfo = $this->workerSpace->getWorkerInfo($wId);
                 if ($workerInfo !== false) {
-                    if ($workerInfo[WorkerSpace::FIELD_STATUS] == BaseWorker::STATUS_RUNNING && isset($this->workers[$wId]['do'])) {
-                        $callable = $this->workers[$wId]['do'];
+                    if ($workerInfo[WorkerSpace::FIELD_STATUS] == Worker::STATUS_RUNNING && isset($this->workers[$wId][Worker::FIELD_CALL])) {
+                        $callable = $this->workers[$wId][Worker::FIELD_CALL];
                         $callable($this->workers[$wId]);
                     }
                 }
@@ -65,9 +65,9 @@ class SworkerPool
 
             //onWorkerStop
             $this->pool->on("WorkerStop", function ($pool, $wId) {
-                if ($this->getWorkerStatus($wId) == BaseWorker::STATUS_RUNNING) {
+                if ($this->getWorkerStatus($wId) == Worker::STATUS_RUNNING) {
                     //check if it can only run 1 time
-                    if (isset($this->workers[$wId][WorkerSpace::FIELD_TYPE]) && $this->workers[$wId][WorkerSpace::FIELD_TYPE] == BaseWorker::TYPE_ONCE) {
+                    if (isset($this->workers[$wId][WorkerSpace::FIELD_TYPE]) && $this->workers[$wId][WorkerSpace::FIELD_TYPE] == Worker::TYPE_ONCE) {
                         //kill it
                         $this->removeWorker($wId);
                     }
@@ -86,7 +86,7 @@ class SworkerPool
 
     public function removeWorker($wId)
     {
-        $this->workerSpace->setWorkerInfoField($wId, WorkerSpace::FIELD_STATUS, BaseWorker::STATUS_STOP);
+        $this->workerSpace->setWorkerInfoField($wId, WorkerSpace::FIELD_STATUS, Worker::STATUS_STOP);
     }
 }
 
