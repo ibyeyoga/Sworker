@@ -13,7 +13,6 @@ interface WorkerSpace
 {
     const FIELD_WID = 'wid';
     const FIELD_STATUS = 'status';
-    const FIELD_TYPE = 'type';
 
     public function getWorkerInfo($wId);
 

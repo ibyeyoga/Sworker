@@ -10,8 +10,6 @@ class TableWorkerSpace implements WorkerSpace
     {
             $this->_instance = new stable($max);
             $this->_instance->column(WorkerSpace::FIELD_WID, stable::TYPE_INT, 2);//strlen($_max)
-//            $this->workerSpace->column('name', swoole_table::TYPE_STRING, $_nameLength);
-            $this->_instance->column(WorkerSpace::FIELD_TYPE, stable::TYPE_INT, 1);
             $this->_instance->column(WorkerSpace::FIELD_STATUS, stable::TYPE_INT, 1);
             $this->_instance->create();
     }

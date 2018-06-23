@@ -1,11 +1,11 @@
 <?php
 
 namespace IBye;
-use IBye\worker\Worker;
-class Sworker extends Worker
+
+class Sworker
 {
     public function run(){
-        $this->getInstance()->start();
+        global $argv;
+        var_dump($argv);
     }
-
 }

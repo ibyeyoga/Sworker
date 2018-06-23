@@ -9,12 +9,14 @@ class Worker
     private $_instance;
 
     const TYPE_UNLIMIT = 1;
-    const TYPE_ONCE = 2;
 
     const STATUS_RUNNING = 1;
     const STATUS_STOP = 2;
 
     const FIELD_CALL = 'call';
+
+    public $wId;
+    public $name;
 
     public function __construct($call)
     {
@@ -49,5 +51,12 @@ class Worker
             return parent::__call($name, $arguments);
         }
         return $this->getInstance()->$name(...$arguments);
+    }
+
+    /**
+     * @return mixed pid
+     */
+    public function run(){
+        return $this->getInstance()->start();
     }
 }

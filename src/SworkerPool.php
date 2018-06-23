@@ -20,28 +20,33 @@ class SworkerPool
 
     private $isRunning = false;
 
-    public function __construct($config = [])
+    public function __construct($config = 1)
     {
-        $this->defConfig = array_merge($this->defConfig, $config);
-        $_max = (int)$this->defConfig['max'];
+        if(is_int($config)){
+            $_max = $config;
+        }
+        else if(is_array($config)){
+            $this->defConfig = array_merge($this->defConfig, $config);
+            $_max = (int)$this->defConfig['max'];
+        }
+
         $this->pool = new Pool($_max);
 
         if ($this->pool) {
             $this->workerSpace = new TableWorkerSpace($_max);
         }
-        //释放内存
+
         unset($_max);
     }
 
-    public function addWorker($workerInfo = [])
+    public function addWorker(Worker $worker)
     {
         $len = count($this->workers);
-        if (!empty($workerInfo) && $len < $this->defConfig['max']) {
-            $workerInfo['id'] = $len;
-            $this->workers[] = $workerInfo;
-            $this->workerSpace->setWorkerInfo($workerInfo['id'], [
-                WorkerSpace::FIELD_WID => $workerInfo['id'],
-                WorkerSpace::FIELD_TYPE => $workerInfo['type'],
+        if (!empty($worker) && $len < $this->defConfig['max']) {
+            $worker->wId = $len;
+            $this->workers[] = $worker;
+            $this->workerSpace->setWorkerInfo($worker->wId, [
+                WorkerSpace::FIELD_WID => $worker->wId,
                 WorkerSpace::FIELD_STATUS => Worker::STATUS_RUNNING
             ]);
         } else {
@@ -56,9 +61,10 @@ class SworkerPool
             $this->pool->on("WorkerStart", function ($pool, $wId) {
                 $workerInfo = $this->workerSpace->getWorkerInfo($wId);
                 if ($workerInfo !== false) {
-                    if ($workerInfo[WorkerSpace::FIELD_STATUS] == Worker::STATUS_RUNNING && isset($this->workers[$wId][Worker::FIELD_CALL])) {
-                        $callable = $this->workers[$wId][Worker::FIELD_CALL];
-                        $callable($this->workers[$wId]);
+                    if ($workerInfo[WorkerSpace::FIELD_STATUS] == Worker::STATUS_RUNNING) {
+                        if($this->workers[$wId] instanceof Worker){
+                            $this->workers[$wId]->run($this->workers[$wId]);
+                        }
                     }
                 }
             });
@@ -66,11 +72,9 @@ class SworkerPool
             //onWorkerStop
             $this->pool->on("WorkerStop", function ($pool, $wId) {
                 if ($this->getWorkerStatus($wId) == Worker::STATUS_RUNNING) {
-                    //check if it can only run 1 time
-                    if (isset($this->workers[$wId][WorkerSpace::FIELD_TYPE]) && $this->workers[$wId][WorkerSpace::FIELD_TYPE] == Worker::TYPE_ONCE) {
-                        //kill it
-                        $this->removeWorker($wId);
-                    }
+//                    if (isset($this->workers[$wId]->type)) {
+//                        $this->removeWorker($wId);
+//                    }
                 }
             });
 
@@ -89,48 +93,3 @@ class SworkerPool
         $this->workerSpace->setWorkerInfoField($wId, WorkerSpace::FIELD_STATUS, Worker::STATUS_STOP);
     }
 }
-
-/**
- * Example
- * Start
- *
- * use IBye\SworkerPool;
- * use IBye\worker\BaseWorker;
- *
- * try {
- * $workerPool = new SworkerPool([
- * 'max' => 2
- * ]);
- *
- * $workerPool->addWorker([
- * 'name' => 'work001',
- * 'do' => function ($data) {
- * echo "#{$data['name']} is started\n";
- * $redis = new Redis();
- * $redis->pconnect('127.0.0.1', 6379);
- * $key = "key1";
- * while (true) {
- * $msgs = $redis->brpop($key, 2);
- * if ($msgs == null) continue;
- * //处理任务列表
- * var_dump($msgs);
- * }
- * },
- * 'type' => BaseWorker::TYPE_UNLIMIT
- * ]);
- *
- * $workerPool->addWorker([
- * 'name' => 'worker002',
- * 'do' => function ($data) {
- * echo 'i\'m worker !!!' . PHP_EOL;
- * },
- * 'type' => BaseWorker::TYPE_ONCE
- * ]);
- *
- * $workerPool->run();
- * } catch (Exception $e) {
- * echo $e->getMessage();
- * }
- *
- * End
- */
